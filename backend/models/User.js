@@ -1,19 +1,12 @@
-// models/User.js
-// ─────────────────────────────────────────────
-// This is the MongoDB schema (blueprint) for a User.
-// Mongoose uses this to create/validate documents in the DB.
-// ─────────────────────────────────────────────
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Define the shape of a User document
 const UserSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: [true, 'Name is required'],
-      trim: true,          // removes extra spaces
+      trim: true,
       minlength: [2, 'Name must be at least 2 characters'],
       maxlength: [50, 'Name cannot exceed 50 characters'],
     },
@@ -21,8 +14,8 @@ const UserSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, 'Email is required'],
-      unique: true,        // no two users can share an email
-      lowercase: true,     // always store as lowercase
+      unique: true,
+      lowercase: true,
       trim: true,
       match: [
         /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
@@ -34,7 +27,7 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters'],
-      select: false,       // ⚠️ IMPORTANT: password won't appear in query results by default
+      select: false,
     },
 
     role: {
@@ -43,7 +36,26 @@ const UserSchema = new mongoose.Schema(
         values: ['student', 'organizer', 'admin'],
         message: 'Role must be student, organizer, or admin',
       },
-      default: 'student',  // new users are students unless specified
+      default: 'student',
+    },
+
+    // ── Fields from the frontend Register form ──
+    enrollNo: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    branch: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    year: {
+      type: String,
+      trim: true,
+      default: '',
     },
 
     isActive: {
@@ -52,31 +64,19 @@ const UserSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // auto-adds createdAt and updatedAt fields
+    timestamps: true,
   }
 );
 
-// ─────────────────────────────────────────────
-// PRE-SAVE HOOK: Hash password before saving
-// This runs automatically before every .save() call
-// ─────────────────────────────────────────────
+// Hash password before saving
 UserSchema.pre('save', async function () {
-  // Only hash if password was changed (avoid re-hashing on profile updates)
   if (!this.isModified('password')) return;
-
-  // bcrypt generates a "salt" (random noise) and hashes the password
-  // Salt rounds = 12 means it runs 2^12 = 4096 iterations (very secure)
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
-
 });
 
-// ─────────────────────────────────────────────
-// INSTANCE METHOD: Compare password during login
-// Called as: user.comparePassword(enteredPassword)
-// ─────────────────────────────────────────────
+// Compare password on login
 UserSchema.methods.comparePassword = async function (enteredPassword) {
-  // bcrypt.compare hashes the entered password and compares with stored hash
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
