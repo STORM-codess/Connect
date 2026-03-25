@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { eventService } from '../../services/eventService'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -115,10 +116,16 @@ export default function CreateEvent() {
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
-    setSubmitted(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      await eventService.createEvent(form)
+      setSubmitted(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to create event. Try again later.');
+    }
   }
 
   const handleChange = (field, value) => {

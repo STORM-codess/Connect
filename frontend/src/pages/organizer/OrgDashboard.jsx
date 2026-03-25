@@ -1,5 +1,7 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { eventService } from '../../services/eventService'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -92,11 +94,7 @@ const navItems = [
   { label:'Registrations', path:'/organizer/registrations', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
 ]
 
-const myEvents = [
-  { id:1, title:'Hackathon 2025', registrations:47, day:'28', mon:'Mar', status:'live' },
-  { id:2, title:'DSA Workshop', registrations:23, day:'15', mon:'Apr', status:'pending' },
-  { id:3, title:'Web Dev Bootcamp', registrations:0, day:'01', mon:'May', status:'draft' },
-]
+// myEvents loaded dynamically
 
 const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
 
@@ -105,6 +103,13 @@ export default function OrgDashboard() {
   const location = useLocation()
   const { user, logout } = useAuth()
   const initials = user?.name ? user.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'O'
+  const [myEvents, setMyEvents] = useState([])
+
+  useEffect(() => {
+    eventService.getOrganizerEvents()
+      .then(res => setMyEvents(res.data || []))
+      .catch(console.error)
+  }, [])
 
   const CalIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
   const UsersIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -160,7 +165,7 @@ export default function OrgDashboard() {
               <button className="banner-btn" onClick={() => navigate('/organizer/create')}>+ Post new event</button>
             </div>
             <div className="banner-pills">
-              {[{num:'3',label:'Active events'},{num:'70',label:'Registrations'},{num:'1',label:'Pending approval'}].map((p,i)=>(
+              {[{num:myEvents.filter(e=>e.status==='approved').length,label:'Live events'},{num:'0',label:'Registrations'},{num:myEvents.filter(e=>e.status==='pending').length,label:'Pending approval'}].map((p,i)=>(
                 <div className="banner-pill" key={i}>
                   <div className="banner-pill-num">{p.num}</div>
                   <div className="banner-pill-label">{p.label}</div>
@@ -171,10 +176,10 @@ export default function OrgDashboard() {
 
           <div className="stats">
             {[
-              { Icon:CalIcon, num:'3', label:'Total events' },
-              { Icon:UsersIcon, num:'70', label:'Registrations' },
-              { Icon:ClockIcon, num:'1', label:'Pending approval' },
-              { Icon:CheckIcon, num:'2', label:'Completed' },
+              { Icon:CalIcon, num:myEvents.length, label:'Total events' },
+              { Icon:UsersIcon, num:'0', label:'Registrations' },
+              { Icon:ClockIcon, num:myEvents.filter(e=>e.status==='pending').length, label:'Pending approval' },
+              { Icon:CheckIcon, num:myEvents.filter(e=>e.status==='approved').length, label:'Live' },
             ].map((s,i) => (
               <div className="stat" key={i}>
                 <div className="stat-icon"><s.Icon/></div>
@@ -189,21 +194,23 @@ export default function OrgDashboard() {
               <div className="card-title">My events</div>
               <button className="add-btn" onClick={() => navigate('/organizer/create')}>+ New event</button>
             </div>
-            {myEvents.map(ev => (
-              <div className="event-row" key={ev.id}>
+            {myEvents.map(ev => {
+              const d = new Date(ev.date)
+              return (
+              <div className="event-row" key={ev._id}>
                 <div className="event-datebox">
-                  <div className="event-day">{ev.day}</div>
-                  <div className="event-mon">{ev.mon}</div>
+                  <div className="event-day">{d.getDate() || '??'}</div>
+                  <div className="event-mon">{d.toLocaleString('default', { month: 'short' }) || ''}</div>
                 </div>
                 <div style={{flex:1, minWidth:0}}>
                   <div className="event-title">{ev.title}</div>
-                  <div className="event-sub">{ev.registrations} registrations</div>
+                  <div className="event-sub">{ev.participants?.length || 0} registrations</div>
                 </div>
-                <div className={`status ${ev.status}`}>
-                  {ev.status === 'live' ? 'Live' : ev.status === 'pending' ? 'Pending' : 'Draft'}
+                <div className={`status ${ev.status === 'approved' ? 'live' : ev.status}`}>
+                  {ev.status === 'approved' ? 'Live' : ev.status === 'pending' ? 'Pending' : 'Rejected'}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       </main>

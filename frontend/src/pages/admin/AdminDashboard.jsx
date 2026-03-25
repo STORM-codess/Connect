@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { adminService } from '../../services/adminService'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -69,7 +70,7 @@ const styles = `
   .pending-row { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid rgba(61,90,241,0.07); }
   .pending-row:last-child { border-bottom: none; padding-bottom: 0; }
   .pending-row:first-child { padding-top: 0; }
-  .pending-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .pending-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #e0e7ff; }
   .pending-title { font-size: 14px; font-weight: 700; color: var(--text); }
   .pending-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .pending-actions { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
@@ -82,6 +83,7 @@ const styles = `
   .status { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 10px; border-radius: 100px; margin-left: auto; }
   .status.active { background: #dcfce7; color: #166534; }
   .status.pending { background: #fef9c3; color: #92400e; }
+  .status.null { background: #fef9c3; color: #92400e; }
 
   @media(max-width:900px){ .stats{grid-template-columns:repeat(2,1fr)} .two-col{grid-template-columns:1fr} .banner-pills{display:none} }
 `
@@ -92,40 +94,59 @@ const navItems = [
   { label:'All Clubs', path:'/admin/clubs', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
 ]
 
-const pendingEvents = [
-  { id:1, title:'AI Workshop', club:'Coding Club', date:'Apr 20', bg:'#dbeafe', color:'#1d4ed8' },
-  { id:2, title:'Photo Exhibition', club:'Photography Club', date:'Apr 22', bg:'#fef9c3', color:'#92400e' },
-  { id:3, title:'Poetry Slam', club:'Literary Club', date:'Apr 28', bg:'#fce7f3', color:'#9d174d' },
-]
-
-const pendingClubs = [
-  { id:1, name:'Dance Club', by:'Priya Sharma', members:12, bg:'#f3e8ff', color:'#6b21a8' },
-  { id:2, name:'Drama Club', by:'Rohit Mehta', members:8, bg:'#dcfce7', color:'#166534' },
-]
-
-const allClubs = [
-  { name:'Coding Club', members:120, status:'active' },
-  { name:'Photography Club', members:85, status:'active' },
-  { name:'Robotics Club', members:60, status:'active' },
-  { name:'Literary Club', members:95, status:'active' },
-  { name:'Sports Club', members:200, status:'active' },
-  { name:'Music Club', members:70, status:'active' },
-]
-
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
-  const [pendingEvs, setPendingEvs] = useState(pendingEvents)
-  const [pendingClubs2, setPendingClubs2] = useState(pendingClubs)
+  
+  const [data, setData] = useState({
+    totalUsers: 0,
+    totalClubs: 0,
+    totalEvents: 0,
+    activeEvents: 0,
+    pendingEvents: [],
+    pendingClubs: [],
+    allClubs: []
+  })
+
+  useEffect(() => {
+    fetchDashboard()
+  }, [])
+
+  const fetchDashboard = () => {
+    adminService.getDashboardAuth()
+      .then(res => setData(res.data))
+      .catch(console.error)
+  }
 
   const initials = user?.name ? user.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'A'
   const today = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
 
-  const approveEvent = (id) => setPendingEvs(p => p.filter(e => e.id !== id))
-  const rejectEvent = (id) => setPendingEvs(p => p.filter(e => e.id !== id))
-  const approveClub = (id) => setPendingClubs2(p => p.filter(c => c.id !== id))
-  const rejectClub = (id) => setPendingClubs2(p => p.filter(c => c.id !== id))
+  const approveEvent = async (id) => {
+    try {
+      await adminService.approveEvent(id)
+      fetchDashboard()
+    } catch(err) { alert('Failed to approve event') }
+  }
+
+  const rejectEvent = async (id) => {
+    try {
+      await adminService.rejectEvent(id)
+      fetchDashboard()
+    } catch(err) { alert('Failed to reject event') }
+  }
+
+  const approveClub = async (id) => {
+    try {
+      await adminService.verifyClub(id)
+      fetchDashboard()
+    } catch(err) { alert('Failed to verify club') }
+  }
+
+  const rejectClub = async (id) => {
+      // Could add reject club endpoint in future
+      fetchDashboard()
+  }
 
   return (
     <div className="page-root">
@@ -174,7 +195,7 @@ export default function AdminDashboard() {
               <div className="banner-sub">Approve events, verify clubs and monitor campus activity.</div>
             </div>
             <div className="banner-pills">
-              {[{num:pendingEvs.length,label:'Pending events'},{num:pendingClubs2.length,label:'Pending clubs'},{num:6,label:'Active clubs'},{num:150,label:'Students'}].map((p,i)=>(
+              {[{num:data.pendingEvents.length,label:'Pending events'},{num:data.pendingClubs.length,label:'Pending clubs'},{num:data.allClubs.filter(x=>x.verified).length,label:'Active clubs'},{num:data.totalUsers,label:'Students'}].map((p,i)=>(
                 <div className="banner-pill" key={i}>
                   <div className="banner-pill-num">{p.num}</div>
                   <div className="banner-pill-label">{p.label}</div>
@@ -185,10 +206,10 @@ export default function AdminDashboard() {
 
           <div className="stats">
             {[
-              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, num:'150', label:'Total students' },
-              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, num:'12', label:'Total events' },
-              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>, num:'6', label:'Active clubs' },
-              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>, num:pendingEvs.length+pendingClubs2.length, label:'Pending approvals' },
+              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, num:data.totalUsers, label:'Total Users' },
+              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, num:data.totalEvents, label:'Total events' },
+              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>, num:data.allClubs.filter(x=>x.verified).length, label:'Active clubs' },
+              { icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>, num:data.pendingEvents.length+data.pendingClubs.length, label:'Pending approvals' },
             ].map((s,i)=>(
               <div className="stat" key={i}>
                 <div className="stat-icon">{s.icon}</div>
@@ -203,21 +224,21 @@ export default function AdminDashboard() {
             <div className="glass-card">
               <div className="card-header">
                 <div className="card-title">Pending events</div>
-                <span className="card-count">{pendingEvs.length} waiting</span>
+                <span className="card-count">{data.pendingEvents.length} waiting</span>
               </div>
-              {pendingEvs.length === 0 && <div style={{color:'var(--muted)',fontSize:'14px',fontStyle:'italic'}}>All events approved</div>}
-              {pendingEvs.map(ev=>(
-                <div className="pending-row" key={ev.id}>
-                  <div className="pending-icon" style={{background:ev.bg}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={ev.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {data.pendingEvents.length === 0 && <div style={{color:'var(--muted)',fontSize:'14px',fontStyle:'italic'}}>All events approved</div>}
+              {data.pendingEvents.map(ev=>(
+                <div className="pending-row" key={ev._id}>
+                  <div className="pending-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </div>
                   <div>
                     <div className="pending-title">{ev.title}</div>
-                    <div className="pending-sub">{ev.club} · {ev.date}</div>
+                    <div className="pending-sub">{ev.club?.name || 'Unknown Club'} · {new Date(ev.date).toLocaleDateString()}</div>
                   </div>
                   <div className="pending-actions">
-                    <button className="btn-approve" onClick={()=>approveEvent(ev.id)}>Approve</button>
-                    <button className="btn-reject" onClick={()=>rejectEvent(ev.id)}>Reject</button>
+                    <button className="btn-approve" onClick={()=>approveEvent(ev._id)}>Approve</button>
+                    <button className="btn-reject" onClick={()=>rejectEvent(ev._id)}>Reject</button>
                   </div>
                 </div>
               ))}
@@ -227,21 +248,21 @@ export default function AdminDashboard() {
             <div className="glass-card">
               <div className="card-header">
                 <div className="card-title">Pending clubs</div>
-                <span className="card-count">{pendingClubs2.length} waiting</span>
+                <span className="card-count">{data.pendingClubs.length} waiting</span>
               </div>
-              {pendingClubs2.length === 0 && <div style={{color:'var(--muted)',fontSize:'14px',fontStyle:'italic'}}>All clubs verified</div>}
-              {pendingClubs2.map(c=>(
-                <div className="pending-row" key={c.id}>
-                  <div className="pending-icon" style={{background:c.bg}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              {data.pendingClubs.length === 0 && <div style={{color:'var(--muted)',fontSize:'14px',fontStyle:'italic'}}>All clubs verified</div>}
+              {data.pendingClubs.map(c=>(
+                <div className="pending-row" key={c._id}>
+                  <div className="pending-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                   </div>
                   <div>
                     <div className="pending-title">{c.name}</div>
-                    <div className="pending-sub">by {c.by} · {c.members} members</div>
+                    <div className="pending-sub">by {c.organizer?.name || 'Unknown'} · {c.category}</div>
                   </div>
                   <div className="pending-actions">
-                    <button className="btn-approve" onClick={()=>approveClub(c.id)}>Verify</button>
-                    <button className="btn-reject" onClick={()=>rejectClub(c.id)}>Reject</button>
+                    <button className="btn-approve" onClick={()=>approveClub(c._id)}>Verify</button>
+                    <button className="btn-reject" onClick={()=>rejectClub(c._id)}>Reject</button>
                   </div>
                 </div>
               ))}
@@ -252,18 +273,18 @@ export default function AdminDashboard() {
           <div className="glass-card">
             <div className="card-header">
               <div className="card-title">All clubs</div>
-              <span className="card-count">{allClubs.length} active</span>
+              <span className="card-count">{data.allClubs.length} active</span>
             </div>
-            {allClubs.map((c,i)=>(
+            {data.allClubs.map((c,i)=>(
               <div className="pending-row" key={i}>
                 <div className="pending-icon" style={{background:'var(--blue-light)'}}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 </div>
                 <div>
                   <div className="pending-title">{c.name}</div>
-                  <div className="pending-sub">{c.members} members</div>
+                  <div className="pending-sub">{c.category}</div>
                 </div>
-                <span className={`status ${c.status}`}>{c.status}</span>
+                <span className={`status ${c.verified ? 'active' : 'pending'}`}>{c.verified ? 'Verified' : 'Pending'}</span>
               </div>
             ))}
           </div>

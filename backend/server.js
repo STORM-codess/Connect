@@ -13,8 +13,28 @@ app.use(cors({
 }));
 
 // ── Body parsers ──
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// ── Security & Production Middlewares ──
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+
+app.use(helmet()); // Set security HTTP headers
+app.use(mongoSanitize()); // Prevent NoSQL injection
+app.use(xss()); // Prevent XSS attacks
+app.use(morgan('dev')); // Request logging
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 mins
+  max: 100, // Limit each IP to 100 requests per window
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api', limiter);
 
 // ── Request logger ──
 app.use((req, res, next) => {
@@ -24,6 +44,11 @@ app.use((req, res, next) => {
 
 // ── Routes ──
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/clubs', require('./routes/clubRoutes'));
+app.use('/api/events', require('./routes/eventRoutes'));
+app.use('/api/events', require('./routes/registrationRoutes')); 
+app.use('/api/submissions', require('./routes/submissionRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // ── Health check ──
 app.get('/', (req, res) => {

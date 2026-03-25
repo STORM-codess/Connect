@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { loginUser } from '../../services/authservices'
 import authBg from '../../assets/images/auth-bg.jpg'
 
 const styles = `
@@ -64,7 +63,7 @@ const roleHome = {
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login } = useAuth() // using real API AuthContext integration!
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -79,16 +78,17 @@ export default function Login() {
       setError('Please enter both email and password.')
       return
     }
-    try {
-      setLoading(true)
-      const data = await loginUser(form)
-      login(data.user, data.token)
-      // ── Role-based redirect ──
-      navigate(roleHome[data.user.role] || '/dashboard', { replace: true })
-    } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password.')
-    } finally {
-      setLoading(false)
+
+    setLoading(true)
+    const res = await login(form.email, form.password)
+    setLoading(false)
+
+    if (res.success) {
+      // Login successful via real backend API
+      const user = JSON.parse(localStorage.getItem('user'));
+      navigate(roleHome[user.role] || '/dashboard', { replace: true })
+    } else {
+      setError(res.message || 'Invalid email or password.')
     }
   }
 

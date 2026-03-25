@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { eventService } from '../../services/eventService'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -48,7 +49,7 @@ const styles = `
   .filter-btn:hover { border-color: var(--blue); color: var(--blue); background: rgba(255,255,255,0.85); }
   .filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 4px 14px rgba(61,90,241,0.28); }
 
-  /* EVENTS GRID — 2 columns for more breathing room */
+  /* EVENTS GRID */
   .events-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
 
   /* EVENT CARD */
@@ -64,39 +65,23 @@ const styles = `
   }
   .event-card:hover { transform: translateY(-5px); box-shadow: 0 16px 40px rgba(61,90,241,0.13); border-color: rgba(61,90,241,0.22); background: rgba(255,255,255,0.85); }
 
-  /* Thin colored top accent line */
-  .event-card-accent { height: 4px; width: 100%; }
+  .event-card-accent { height: 4px; width: 100%; background: var(--blue); }
 
   .event-card-body { padding: 26px 28px 24px; display: flex; flex-direction: column; flex: 1; }
 
-  /* Header row — type badge + club */
   .event-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
   .event-type-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; padding: 5px 13px; border-radius: 100px; background: var(--blue-light); color: var(--blue); border: 1px solid rgba(61,90,241,0.15); }
   .event-club-pill { font-size: 12px; font-weight: 600; color: var(--muted); background: rgba(255,255,255,0.7); border: 1px solid var(--border); border-radius: 100px; padding: 4px 12px; }
 
-  /* Title */
   .event-title { font-size: 22px; font-weight: 900; letter-spacing: -0.7px; line-height: 1.2; color: var(--text); margin-bottom: 22px; }
 
-  /* Meta section */
   .event-metas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; }
   .event-meta { background: rgba(61,90,241,0.04); border: 1px solid rgba(61,90,241,0.08); border-radius: 12px; padding: 12px 14px; }
   .event-meta-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); margin-bottom: 5px; }
   .event-meta-val { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
 
-  /* Tags */
-  .event-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-  .event-tag { padding: 5px 13px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.9); background: rgba(255,255,255,0.5); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
-
-  /* Countdown */
-  .event-countdown { background: linear-gradient(135deg, #eef0fd 0%, #e0e7ff 100%); border-radius: 14px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(61,90,241,0.12); }
-  .event-countdown-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.3px; color: var(--blue-mid); }
-  .event-countdown-val { font-size: 20px; font-weight: 900; color: var(--blue); letter-spacing: -0.5px; }
-
-  /* Button */
   .event-btn { margin-top: auto; width: 100%; background: var(--blue); color: #fff; border: none; padding: 15px; border-radius: 13px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.15s; letter-spacing: 0.2px; box-shadow: 0 4px 14px rgba(61,90,241,0.22); }
   .event-btn:hover { background: var(--blue-hover); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(61,90,241,0.3); }
-  .event-btn.out { background: rgba(255,255,255,0.65); color: var(--muted); border: 1px solid rgba(255,255,255,0.9); box-shadow: none; letter-spacing: 0.2px; }
-  .event-btn.out:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); transform: none; box-shadow: none; }
 
   @media(max-width:1100px){ .events-grid{grid-template-columns:1fr} }
   @media(max-width:1024px){ .sidebar{width:200px} .page-main{margin-left:200px} }
@@ -110,24 +95,19 @@ const navItems = [
   { label:'Profile', path:'/profile', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
 ]
 
-const allEvents = [
-  { id:1, title:'Hackathon 2025', club:'Coding Club', type:'Hackathon', date:'Mar 28 – Apr 2', venue:'College Auditorium', countdown:'8d:14h:32m', tags:['OFFLINE','OPEN'], apply:true, accent:'#3d5af1' },
-  { id:2, title:'Photography Walk', club:'Photography Club', type:'Workshop', date:'Apr 5 – Apr 5', venue:'Campus Grounds', countdown:'16d:08h:00m', tags:['OFFLINE','OPEN'], apply:true, accent:'#f59e0b' },
-  { id:3, title:'Debate Night', club:'Literary Club', type:'Competition', date:'Apr 10 – Apr 10', venue:'Seminar Hall', countdown:null, tags:['OFFLINE','OPEN'], apply:false, accent:'#ec4899' },
-  { id:4, title:'Robotics Demo Day', club:'Robotics Club', type:'Exhibition', date:'Apr 15 – Apr 15', venue:'Lab Block', countdown:'26d:00h:00m', tags:['OFFLINE','OPEN'], apply:true, accent:'#10b981' },
-  { id:5, title:'Open Mic Night', club:'Music Club', type:'Performance', date:'Apr 20 – Apr 20', venue:'Auditorium', countdown:null, tags:['OFFLINE','OPEN'], apply:false, accent:'#8b5cf6' },
-  { id:6, title:'Sports Meet 2025', club:'Sports Club', type:'Tournament', date:'Apr 25 – Apr 27', venue:'Sports Ground', countdown:'36d:00h:00m', tags:['OFFLINE','OPEN'], apply:true, accent:'#ef4444' },
-]
-
-const filters = ['All','Hackathon','Workshop','Competition','Exhibition','Performance','Tournament']
-
 export default function Events() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
-  const [activeFilter, setActiveFilter] = useState('All')
+  
+  const [allEvents, setAllEvents] = useState([])
+  
+  useEffect(() => {
+    eventService.getApprovedEvents()
+      .then(res => setAllEvents(res.data || []))
+      .catch(console.error)
+  }, [])
 
-  const filtered = activeFilter === 'All' ? allEvents : allEvents.filter(e => e.type === activeFilter)
   const initials = user?.name ? user.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'U'
 
   return (
@@ -182,60 +162,32 @@ export default function Events() {
 
         <div className="page-content">
 
-          {/* FILTERS */}
-          <div className="filters">
-            {filters.map(f => (
-              <button key={f} className={`filter-btn${activeFilter===f?' active':''}`} onClick={() => setActiveFilter(f)}>{f}</button>
-            ))}
-          </div>
-
           {/* EVENTS GRID */}
           <div className="events-grid">
-            {filtered.map(ev => (
-              <div className="event-card" key={ev.id} onClick={() => navigate(`/events/${ev.id}`)}>
-
-                {/* Colored accent line on top */}
-                <div className="event-card-accent" style={{background: ev.accent}} />
-
+            {allEvents.length === 0 && <span style={{color:'var(--muted)'}}>No events available right now.</span>}
+            {allEvents.map(ev => (
+              <div className="event-card" key={ev._id} onClick={() => navigate(`/events/${ev._id}`)}>
+                <div className="event-card-accent" />
                 <div className="event-card-body">
-                  {/* Header */}
                   <div className="event-header">
-                    <span className="event-type-badge">{ev.type}</span>
-                    <span className="event-club-pill">by {ev.club}</span>
+                    <span className="event-type-badge">Event</span>
+                    <span className="event-club-pill">by {ev.club?.name || 'Unknown'}</span>
                   </div>
 
-                  {/* Title */}
                   <div className="event-title">{ev.title}</div>
 
-                  {/* Meta grid */}
                   <div className="event-metas">
                     <div className="event-meta">
-                      <div className="event-meta-label">Runs from</div>
-                      <div className="event-meta-val">{ev.date}</div>
+                      <div className="event-meta-label">Date</div>
+                      <div className="event-meta-val">{new Date(ev.date).toLocaleDateString()}</div>
                     </div>
                     <div className="event-meta">
-                      <div className="event-meta-label">Happening</div>
+                      <div className="event-meta-label">Venue</div>
                       <div className="event-meta-val">{ev.venue}</div>
                     </div>
                   </div>
 
-                  {/* Tags */}
-                  <div className="event-tags">
-                    {ev.tags.map(t => <span className="event-tag" key={t}>{t}</span>)}
-                  </div>
-
-                  {/* Countdown */}
-                  {ev.countdown && (
-                    <div className="event-countdown">
-                      <span className="event-countdown-label">Applications close in</span>
-                      <span className="event-countdown-val">{ev.countdown}</span>
-                    </div>
-                  )}
-
-                  {/* Button */}
-                  <button className={`event-btn${ev.apply ? '' : ' out'}`}>
-                    {ev.apply ? 'Apply now' : 'Learn more'}
-                  </button>
+                  <button className="event-btn">Apply now</button>
                 </div>
               </div>
             ))}

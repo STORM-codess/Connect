@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { eventService } from '../../services/eventService'
+import { registrationService } from '../../services/registrationService'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -28,7 +30,7 @@ const styles = `
   .sidebar-bottom { padding: 14px 12px 22px; border-top: 1px solid rgba(61,90,241,0.08); }
   .user-card { display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(61,90,241,0.06); border: 1px solid rgba(61,90,241,0.1); border-radius: 14px; cursor: pointer; transition: all 0.15s; }
   .user-card:hover { background: rgba(61,90,241,0.1); }
-  .user-avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fff; flex-shrink: 0; }
+  .user-avatar { width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fff; flex-shrink: 0; box-shadow: 0 3px 8px rgba(61,90,241,0.3); }
   .user-name { font-size: 13px; font-weight: 700; color: var(--text); }
   .user-role { font-size: 11px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
 
@@ -41,20 +43,17 @@ const styles = `
 
   .content { padding: 28px 32px; max-width: 820px; }
 
-  /* HERO */
   .event-hero { border-radius: 22px; overflow: hidden; margin-bottom: 20px; position: relative; box-shadow: 0 8px 32px rgba(61,90,241,0.15); }
-  .event-hero-accent { height: 5px; width: 100%; }
+  .event-hero-accent { height: 5px; width: 100%; background: var(--blue); }
   .event-hero-body { background: linear-gradient(135deg, #3d5af1 0%, #6366f1 55%, #8b5cf6 100%); padding: 36px 36px 32px; position: relative; overflow: hidden; }
   .event-hero-body::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 22px 22px; }
   .event-hero-type { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: rgba(255,255,255,0.65); margin-bottom: 10px; position: relative; z-index: 1; }
   .event-hero-title { font-size: clamp(24px,4vw,36px); font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1.1; margin-bottom: 10px; position: relative; z-index: 1; }
   .event-hero-club { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.25); border-radius: 100px; padding: 6px 16px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); position: relative; z-index: 1; }
 
-  /* GLASS CARD */
   .glass-card { background: rgba(255,255,255,0.68); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.85); border-radius: 18px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 16px rgba(61,90,241,0.05); }
   .card-title { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 18px; }
 
-  /* META GRID */
   .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .meta-box { background: rgba(61,90,241,0.04); border: 1px solid rgba(61,90,241,0.08); border-radius: 12px; padding: 14px 16px; }
   .meta-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); margin-bottom: 6px; }
@@ -62,18 +61,10 @@ const styles = `
 
   .event-desc { font-size: 14px; color: var(--muted); line-height: 1.75; letter-spacing: 0.1px; }
 
-  .tags-wrap { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
-  .event-tag { padding: 5px 14px; border-radius: 100px; border: 1px solid rgba(255,255,255,0.9); background: rgba(255,255,255,0.5); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
-
-  .countdown-box { background: linear-gradient(135deg, var(--blue-light) 0%, #e0e7ff 100%); border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(61,90,241,0.12); margin-bottom: 16px; }
-  .countdown-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.3px; color: #5b78f5; }
-  .countdown-val { font-size: 22px; font-weight: 900; color: var(--blue); letter-spacing: -0.5px; }
-
   .register-btn { width: 100%; background: var(--blue); color: #fff; border: none; padding: 16px; border-radius: 14px; font-family: 'Inter',sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.15s; box-shadow: 0 4px 16px rgba(61,90,241,0.24); letter-spacing: 0.2px; }
   .register-btn:hover { background: var(--blue-hover); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(61,90,241,0.3); }
   .register-btn.registered { background: #dcfce7; color: #166534; border: 1.5px solid rgba(22,101,52,0.2); box-shadow: none; }
   .register-btn.registered:hover { background: #bbf7d0; transform: none; }
-  .register-btn.venue { background: rgba(255,255,255,0.7); color: var(--muted); border: 1.5px solid rgba(255,255,255,0.9); box-shadow: none; cursor: default; }
 
   @media(max-width:768px){ .sidebar{display:none} .page-main{margin-left:0} .content{padding:20px} .meta-grid{grid-template-columns:1fr} }
 `
@@ -85,23 +76,43 @@ const navItems = [
   { label:'Profile', path:'/profile', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
 ]
 
-const events = {
-  1: { title:'Hackathon 2025', club:'Coding Club', type:'Hackathon', date:'Mar 28 – Apr 2', venue:'College Auditorium', teamSize:'2–4 members', countdown:'8d:14h:32m', desc:'A 24-hour hackathon open to all students. Form a team, build something amazing, and compete for prizes across three tracks — Web Dev, AI/ML, and Open Innovation. Food and refreshments provided throughout. Mentors from the industry will be present to guide teams.', tags:['OFFLINE','OPEN','TEAM EVENT'], apply:true, accent:'#3d5af1' },
-  2: { title:'Photography Walk', club:'Photography Club', type:'Workshop', date:'Apr 5 – Apr 5', venue:'Campus Grounds', teamSize:'Solo', countdown:'16d:08h:00m', desc:'Join us for a guided photography walk around campus followed by an editing workshop using Lightroom. All skill levels welcome. Bring your camera or phone. The session will be led by our senior members and a guest photographer.', tags:['OFFLINE','OPEN','SOLO'], apply:true, accent:'#f59e0b' },
-  3: { title:'Debate Night', club:'Literary Club', type:'Competition', date:'Apr 10 – Apr 10', venue:'Seminar Hall', teamSize:'Solo or pairs', countdown:null, desc:'An evening of competitive debate on current affairs. Open to all students. Certificates for all participants and trophies for the top 3 teams. Register on the spot at the venue — no pre-registration required.', tags:['OFFLINE','OPEN'], apply:false, accent:'#ec4899' },
-  4: { title:'Robotics Demo Day', club:'Robotics Club', type:'Exhibition', date:'Apr 15 – Apr 15', venue:'Lab Block', teamSize:'Team', countdown:'26d:00h:00m', desc:'Showcase your robotics projects to the college community and invited industry guests. Open exhibition format — set up your project and present to visitors throughout the day. Prizes for best project in three categories.', tags:['OFFLINE','OPEN'], apply:true, accent:'#10b981' },
-  5: { title:'Open Mic Night', club:'Music Club', type:'Performance', date:'Apr 20 – Apr 20', venue:'College Auditorium', teamSize:'Solo or group', countdown:null, desc:'An evening of music, poetry, and performance. Sign up to perform or just come to enjoy. All genres and art forms welcome. Walk-ins accepted.', tags:['OFFLINE','OPEN'], apply:false, accent:'#8b5cf6' },
-  6: { title:'Sports Meet 2025', club:'Sports Club', type:'Tournament', date:'Apr 25 – Apr 27', venue:'Sports Ground', teamSize:'Team', countdown:'36d:00h:00m', desc:'A 3-day inter-department sports tournament covering cricket, football, basketball, badminton, and table tennis. Register your department team for any sport. Trophies and medals for winners.', tags:['OFFLINE','OPEN','TEAM EVENT'], apply:true, accent:'#ef4444' },
-}
-
 export default function EventDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
-  const event = events[id]
+  
+  const [event, setEvent] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [registered, setRegistered] = useState(false)
   const initials = user?.name ? user.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'U'
+
+  useEffect(() => {
+    eventService.getEventById(id)
+      .then(res => {
+        setEvent(res.data)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [id])
+
+  const handleRegister = async () => {
+    if (registered) return;
+    try {
+      await registrationService.registerForEvent(id)
+      setRegistered(true)
+      alert("Registration successful!")
+    } catch(err) {
+      if (err.response?.status === 400 && err.response.data.message.toLowerCase().includes('already')) {
+        setRegistered(true)
+        alert("You are already registered for this event!")
+      } else {
+        alert(err.response?.data?.message || 'Failed to register.')
+      }
+    }
+  }
+
+  if (loading) return <div style={{padding:40}}>Loading event details...</div>
 
   if (!event) return (
     <div className="page-root">
@@ -153,13 +164,13 @@ export default function EventDetail() {
 
         <div className="content">
           <div className="event-hero">
-            <div className="event-hero-accent" style={{background: event.accent}}/>
+            <div className="event-hero-accent" />
             <div className="event-hero-body">
-              <div className="event-hero-type">{event.type}</div>
+              <div className="event-hero-type">Event</div>
               <div className="event-hero-title">{event.title}</div>
               <div className="event-hero-club">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                {event.club}
+                {event.club?.name || 'Unknown Club'}
               </div>
             </div>
           </div>
@@ -167,34 +178,25 @@ export default function EventDetail() {
           <div className="glass-card">
             <div className="card-title">Event details</div>
             <div className="meta-grid">
-              <div className="meta-box"><div className="meta-label">Date</div><div className="meta-val">{event.date}</div></div>
+              <div className="meta-box"><div className="meta-label">Date</div><div className="meta-val">{new Date(event.date).toLocaleDateString()}</div></div>
               <div className="meta-box"><div className="meta-label">Venue</div><div className="meta-val">{event.venue}</div></div>
               <div className="meta-box"><div className="meta-label">Team size</div><div className="meta-val">{event.teamSize}</div></div>
-              <div className="meta-box"><div className="meta-label">Type</div><div className="meta-val">{event.type}</div></div>
+              <div className="meta-box"><div className="meta-label">Registrations</div><div className="meta-val">{event.participants?.length || 0}</div></div>
             </div>
           </div>
 
           <div className="glass-card">
             <div className="card-title">About this event</div>
-            <div className="event-desc">{event.desc}</div>
-            <div className="tags-wrap">
-              {event.tags.map(t => <span className="event-tag" key={t}>{t}</span>)}
-            </div>
+            <div className="event-desc">{event.description}</div>
           </div>
 
           <div className="glass-card">
             <div className="card-title">Registration</div>
-            {event.countdown && (
-              <div className="countdown-box">
-                <span className="countdown-label">Applications close in</span>
-                <span className="countdown-val">{event.countdown}</span>
-              </div>
-            )}
             <button
-              className={`register-btn${!event.apply?' venue':registered?' registered':''}`}
-              onClick={() => event.apply && setRegistered(!registered)}
+              className={`register-btn${registered ? ' registered' : ''}`}
+              onClick={handleRegister}
             >
-              {!event.apply ? 'Walk-in — No registration needed' : registered ? '✓ Registered — Click to cancel' : 'Register now'}
+              {registered ? '✓ Registered' : 'Register now'}
             </button>
           </div>
         </div>

@@ -12,54 +12,47 @@ import OrgDashboard from './pages/organizer/OrgDashboard'
 import CreateEvent from './pages/organizer/CreateEvent'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import NotFound from './pages/public/NotFound'
-import ProtectedRoute from './routes/ProtectedRoute'
+
+// Real API Integration Middlewares
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* ── Public ── */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* ── Public ── */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-        {/* ── Student ── */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute role="student"><Dashboard /></ProtectedRoute>
-        } />
-        <Route path="/clubs" element={
-          <ProtectedRoute role="student"><Clubs /></ProtectedRoute>
-        } />
-        <Route path="/clubs/:id" element={
-          <ProtectedRoute role="student"><ClubDetail /></ProtectedRoute>
-        } />
-        <Route path="/events" element={
-          <ProtectedRoute role="student"><Events /></ProtectedRoute>
-        } />
-        <Route path="/events/:id" element={
-          <ProtectedRoute role="student"><EventDetail /></ProtectedRoute>
-        } />
-        <Route path="/profile" element={
-          <ProtectedRoute role="student"><Profile /></ProtectedRoute>
-        } />
+          {/* ── Student ── */}
+          <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/clubs" element={<Clubs />} />
+            <Route path="/clubs/:id" element={<ClubDetail />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/events/:id" element={<EventDetail />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
 
-        {/* ── Organizer ── */}
-        <Route path="/organizer" element={
-          <ProtectedRoute role="organizer"><OrgDashboard /></ProtectedRoute>
-        } />
-        <Route path="/organizer/create" element={
-          <ProtectedRoute role="organizer"><CreateEvent /></ProtectedRoute>
-        } />
+          {/* ── Organizer ── */}
+          <Route element={<ProtectedRoute allowedRoles={['organizer']} />}>
+            <Route path="/organizer" element={<OrgDashboard />} />
+            <Route path="/organizer/create" element={<CreateEvent />} />
+          </Route>
 
-        {/* ── Admin ── */}
-        <Route path="/admin" element={
-          <ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>
-        } />
+          {/* ── Admin ── */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+          </Route>
 
-        {/* ── 404 ── */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+          {/* ── 404 ── */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 
